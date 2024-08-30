@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="yellow">#FAAE1C</color>
+    <color name="btn_color">#FF6F00</color>
+    <color name="btn_color2">#EC9F53</color>
+    <color name="tv_pesan">#00000000</color>
+    <color name="ed_message">#5F6F65</color>
+    <color name="green_gray">#5F6F65</color>
+    <color name="orange">#FF6F00</color>
+    <color name="red">#DD1C1C</color>
+    <color name="putih">#D9D9D9</color>
+    <color name="gray">#757575</color>
+    <!--    FFCC80-->
+    <!--    <color name="pink_500">#D81B60</color>-->
+    <!--    <color name="pink_200">#FF8FAF</color>-->
+
+</resources>

@@ -1,0 +1,46 @@
+<resources>
+    <string name="app_name">Runtime Chat</string>
+    <string name="start_button">Start</string>
+    <string name="start">Start</string>
+    <string name="text_welcome">Please enter with your number phone</string>
+    <string name="welcome">Welcome to Digitak</string>
+    <string name="digitak">Digitak</string>
+    <string name="title_activity_login">LoginActivity</string>
+    <string name="region">Region: </string>
+    <string name="phone">Phone: </string>
+    <string name="login_failed">"Login failed"</string>
+    <string name="next">Send OTP</string>
+    <string name="please">Please enter your Phone Number</string>
+    <string name="enter_otp">Please enter your OTP Code</string>
+    <string name="otp">OTP : </string>
+    <string name="login">Login</string>
+    <string name="phone_number">phone number</string>
+    <string name="name">Name :</string>
+    <string name="logout">Logout</string>
+    <string name="title_activity_menu">MenuActivity</string>
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="user_name">user name</string>
+    <string name="pesan">pesan</string>
+    <string name="bio">bio</string>
+    <string name="mute">Mute</string>
+    <string name="search">Search</string>
+    <string name="block">Block</string>
+    <string name="send_success">Done Sending</string>
+    <string name="send_error">Gagal terkirim</string>
+    <string name="dark_mode">Dark Mode</string>
+    <string name="setting">Setting</string>
+    <string name="new_contact">New Contact</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="profile">Profile</string>
+    <string name="bioo">Bio:</string>
+    <string name="send_a_message">Send a message</string>
+    <string name="your_profile">Your Profile</string>
+    <string name="i_aggre">I Aggre</string>
+    <string name="enter_your_otp_code">Enter Your OTP Code</string>
+    <string name="resend_otp">Resend OTP</string>
+    <string name="language">Language</string>
+
+
+</resources>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:padding="8dp"
+        android:orientation="horizontal"
+        android:gravity="end"
+        android:layout_height="wrap_content">
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginLeft="5dp">
+
+            <ImageView
+                android:id="@+id/imageViewKiri"
+                android:layout_width="200dp"
+                android:layout_height="200dp"
+                android:layout_marginBottom="8dp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/pesanKiri"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_bubble_left"
+                android:maxWidth="250dp"
+                android:padding="10dp"
+                android:text="Hello"
+                android:layout_marginEnd="20dp"
+                android:textColor="@android:color/black"
+                android:textSize="15dp"/>
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/timeKiri"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:layout_marginRight="8dp"
+            android:layout_weight="1"
+            android:gravity="start"
+            android:text="14:00"
+            android:textStyle="italic" />
+
+
+    </LinearLayout>
+</layout>
