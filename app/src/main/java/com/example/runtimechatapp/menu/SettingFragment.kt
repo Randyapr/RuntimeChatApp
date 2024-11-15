@@ -21,16 +21,11 @@ class SettingFragment : Fragment() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // inisial SharedPreferences
+        // Inisialisasi SharedPreferences
         sharedPreferences = requireActivity().getSharedPreferences("settings", Context.MODE_PRIVATE)
 
-        // apply tema
-        val isDarkMode = sharedPreferences.getBoolean(themePrefKey, false)
-        if (isDarkMode) {
-            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
-        } else {
-            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
-        }
+        // Terapkan tema yang dipilih
+        applyTheme()
     }
 
     override fun onCreateView(
@@ -41,21 +36,18 @@ class SettingFragment : Fragment() {
 
         val switchTheme: SwitchMaterial = view.findViewById(R.id.switch_theme)
 
-
+        // Inisialisasi status switch berdasarkan tema saat ini
         switchTheme.isChecked = AppCompatDelegate.getDefaultNightMode() == AppCompatDelegate.MODE_NIGHT_YES
 
         switchTheme.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
-                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
-            } else {
-                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
-            }
-
-
+            // Simpan preferensi tema
             with(sharedPreferences.edit()) {
                 putBoolean(themePrefKey, isChecked)
                 apply()
             }
+
+            // Terapkan tema yang dipilih
+            applyTheme()
         }
 
         val settingImageView: View = view.findViewById(R.id.settingImageView)
@@ -64,5 +56,22 @@ class SettingFragment : Fragment() {
         }
 
         return view
+    }
+
+    private fun applyTheme() {
+        // Periksa tema sistem
+        when (AppCompatDelegate.getDefaultNightMode()) {
+            AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM -> {
+                // Gunakan tema sistem
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+            }
+            else -> {
+                // Gunakan tema dari SharedPreferences
+                val isDarkMode = sharedPreferences.getBoolean(themePrefKey, false)
+                AppCompatDelegate.setDefaultNightMode(
+                    if (isDarkMode) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
+                )
+            }
+        }
     }
 }

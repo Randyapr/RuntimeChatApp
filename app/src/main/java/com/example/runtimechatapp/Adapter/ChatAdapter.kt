@@ -4,6 +4,8 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.bumptech.glide.request.RequestOptions
+import com.example.runtimechatapp.R
 import com.example.runtimechatapp.databinding.ItemChatBinding
 import com.example.runtimechatapp.model.ChatListModel
 
@@ -29,11 +31,17 @@ class ChatAdapter(
         // Load gambar profil jika ada
         Glide.with(holder.itemView.context)
             .load(chat.profileImage)
+            .apply(
+                RequestOptions()
+                    .placeholder(R.drawable.circle_bg)
+                    .error(R.drawable.circle_bg)
+            )
             .into(holder.binding.ivProfileImage)
+
 
         // Set onClickListener untuk item chat
         holder.itemView.setOnClickListener {
-            onChatClick(chat) // Panggil lambda function
+            onChatClick(chat) // lambda
         }
     }
 

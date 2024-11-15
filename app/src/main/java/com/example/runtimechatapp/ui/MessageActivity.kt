@@ -6,7 +6,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.bumptech.glide.Glide
 import com.example.runtimechatapp.Adapter.MessageAdapter
+import com.example.runtimechatapp.R
 import com.example.runtimechatapp.databinding.ActivityMessageBinding
+import com.example.runtimechatapp.menu.ChatFragment
 import com.example.runtimechatapp.model.MessageModel
 import com.example.runtimechatapp.model.UserModel
 import com.example.runtimechatapp.utils.Config
@@ -35,18 +37,18 @@ class MessageActivity : AppCompatActivity() {
         senderUid = auth.currentUser?.uid.toString()
         receiverUid = intent.getStringExtra("contactUid") ?: ""
 
-        // Mengambil data kontak dan menampilkannya di toolbar
+        // Get contact details
         getContactDetails(receiverUid)
 
-        // Inisialisasi RecyclerView dan adapter
+        // Initialize RecyclerView and adapter
         binding.messageRecyclerView.layoutManager = LinearLayoutManager(this)
         messageAdapter = MessageAdapter(messageList, senderUid)
         binding.messageRecyclerView.adapter = messageAdapter
 
-        // Mengambil data pesan dari Firebase
+        // Fetch messages from Firebase
         getMessages()
 
-        // Mengirim pesan saat tombol Send diklik
+        // Handle send message
         binding.sendButton.setOnClickListener {
             val messageText = binding.messageEditText.text.toString()
             if (messageText.isNotEmpty()) {
@@ -57,39 +59,45 @@ class MessageActivity : AppCompatActivity() {
     }
 
     private fun getContactDetails(uid: String) {
-        database.reference.child(Config.USERS).child(uid)
-            .addListenerForSingleValueEvent(object : ValueEventListener {
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    val contact = snapshot.getValue(UserModel::class.java)
-                    if (contact != null) {
-                        binding.tvNameAtas.text = contact.name
-                        Glide.with(this@MessageActivity)
-                            .load(contact.profileImage)
-                            .into(binding.ivContact)
-                    }
+        database.reference.child(Config.USERS).child(uid).get()
+            .addOnSuccessListener { snapshot ->
+                val contact = snapshot.getValue(UserModel::class.java)
+                if (contact != null) {
+                    binding.tvNameAtas.text = contact.name
+                    Glide.with(this@MessageActivity)
+                        .load(contact.profileImage)
+                        .placeholder(R.drawable.circle_bg)
+                        .into(binding.ivContact)
                 }
-
-                override fun onCancelled(error: DatabaseError) {
-                    Toast.makeText(this@MessageActivity, "Error loading contact details", Toast.LENGTH_SHORT).show()
-                }
-            })
+            }
+            .addOnFailureListener {
+                Toast.makeText(this@MessageActivity, "Error loading contact details", Toast.LENGTH_SHORT).show()
+            }
     }
 
     private fun getMessages() {
         database.reference.child(Config.CHATS)
             .child(senderUid).child(receiverUid)
-            .addValueEventListener(object : ValueEventListener {
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    messageList.clear()
-                    for (messageSnapshot in snapshot.children) {
-                        val message = messageSnapshot.getValue(MessageModel::class.java)
-                        if (message != null) {
-                            messageList.add(message)
-                        }
+            .addChildEventListener(object : ChildEventListener {
+                override fun onChildAdded(snapshot: DataSnapshot, previousChildName: String?) {
+                    val message = snapshot.getValue(MessageModel::class.java)
+                    if (message != null) {
+                        messageList.add(message)
+                        messageAdapter.notifyItemInserted(messageList.size - 1)
+                        binding.messageRecyclerView.scrollToPosition(messageList.size - 1)
                     }
-                    messageAdapter.notifyDataSetChanged()
-                    // Gulir ke posisi pesan terakhir
-                    binding.messageRecyclerView.scrollToPosition(messageList.size - 1)
+                }
+
+                override fun onChildChanged(snapshot: DataSnapshot, previousChildName: String?) {
+                    // Handle updated message if needed
+                }
+
+                override fun onChildRemoved(snapshot: DataSnapshot) {
+                    // Handle deleted message if needed
+                }
+
+                override fun onChildMoved(snapshot: DataSnapshot, previousChildName: String?) {
+                    // Handle moved message if needed
                 }
 
                 override fun onCancelled(error: DatabaseError) {
@@ -99,15 +107,35 @@ class MessageActivity : AppCompatActivity() {
     }
 
     private fun sendMessage(messageText: String) {
+        val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
         val message = MessageModel(
             senderId = senderUid,
             receiverId = receiverUid,
             message = messageText,
-            timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+            timestamp = timestamp
         )
 
+        // Push message to Firebase under both sender and receiver
+        val messageRef = database.reference.child(Config.CHATS)
+            .child(senderUid).child(receiverUid).push()
+
+        messageRef.setValue(message).addOnSuccessListener {
+            // Update last message for both users
+            updateLastMessage(messageText, timestamp)
+        }
+    }
+
+    private fun updateLastMessage(messageText: String, timestamp: String) {
+        val lastMessageData = mapOf(
+            "message" to messageText,
+            "timestamp" to timestamp
+        )
+
+        // Update last message for both user conversations
         database.reference.child(Config.CHATS)
-            .child(senderUid).child(receiverUid).push().setValue(message)
-        database.reference.child(Config.CHATS).child(receiverUid).child(senderUid).push().setValue(message)
+            .child(senderUid).child(receiverUid).child("lastMessage").setValue(lastMessageData)
+
+        database.reference.child(Config.CHATS)
+            .child(receiverUid).child(senderUid).child("lastMessage").setValue(lastMessageData)
     }
 }

@@ -12,7 +12,10 @@ import com.example.runtimechatapp.menu.MenuActivity
 import com.example.runtimechatapp.model.UserModel
 import com.example.runtimechatapp.utils.Config
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ValueEventListener
 import com.google.firebase.storage.FirebaseStorage
 
 class NameActivity : AppCompatActivity() {
@@ -62,8 +65,39 @@ class NameActivity : AppCompatActivity() {
                 uploadUserData(name, null)
             }
         }
+        if (isUserLoggedIn()) {
+            // Arahkan ke MenuActivity dan tutup NameActivity
+            val intent = Intent(this, MenuActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            startActivity(intent)
+            finish()
+            return // Hentikan eksekusi onCreate()
+        }
     }
+    private fun isUserLoggedIn(): Boolean {
+        val uid = auth.currentUser?.uid ?: return false // Jika uid null, pengguna belum login
 
+        database.reference.child(Config.USERS).child(uid).addListenerForSingleValueEvent(object :
+            ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val isLoggedIn = snapshot.exists() // Periksa keberadaan node pengguna
+
+                if (isLoggedIn) {
+                    // Arahkan ke MenuActivity dan tutup NameActivity
+                    val intent = Intent(this@NameActivity, MenuActivity::class.java)
+                    intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    startActivity(intent)
+                    finish()
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                // Handle error jika diperlukan
+            }
+        })
+
+        return false // Kembalikan false secara default, navigasi akan ditangani di onDataChange()
+    }
     // Fungsi untuk mengupload gambar dan mendapatkan URL, lalu upload data user
     private fun uploadImageAndGetUrl(name: String) {
         val storageRef = storage.reference.child("Profile").child(auth.uid!!)

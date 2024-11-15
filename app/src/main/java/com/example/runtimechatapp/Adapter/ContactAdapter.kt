@@ -4,6 +4,8 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.bumptech.glide.request.RequestOptions
+import com.example.runtimechatapp.R
 import com.example.runtimechatapp.databinding.ItemContactBinding
 import com.example.runtimechatapp.model.UserModel
 
@@ -30,7 +32,13 @@ class ContactAdapter(
         // Load gambar profil jika ada
         Glide.with(holder.itemView.context)
             .load(contact.profileImage)
+            .apply(
+                RequestOptions()
+                    .placeholder(R.drawable.circle_bg)
+                    .error(R.drawable.circle_bg)
+            )
             .into(holder.binding.ivContact)
+
 
         // Set onClickListener untuk item kontak
         holder.itemView.setOnClickListener {
