@@ -1,179 +1,179 @@
 package com.example.runtimechatapp
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.widget.Button
-import android.widget.ImageButton
-import android.widget.ImageView
 import android.widget.Toast
-import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import com.bumptech.glide.Glide
-import com.example.runtimechatapp.ui.auth.LoginActivity
-import com.google.android.material.textfield.TextInputEditText
+import com.example.runtimechatapp.databinding.ActivityMainBinding
+import com.example.runtimechatapp.menu.MenuActivity
+import com.example.runtimechatapp.model.UserModel
+import com.example.runtimechatapp.ui.WelcomeActivity
+import com.example.runtimechatapp.utils.Config
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.database.*
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageReference
-import java.util.UUID
+import java.util.*
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var logoutButton: Button
-    private lateinit var saveButton: Button
+    private lateinit var binding: ActivityMainBinding
     private lateinit var auth: FirebaseAuth
-    private lateinit var firestore: FirebaseFirestore
-    private lateinit var profile_ImageView: ImageView
-    private lateinit var editImageButton: ImageButton
-
-    private val PICK_IMAGE_REQUEST = 71
-    private var imageUri: Uri? = null
-
-    private val launcherGallery =
-        registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-            if (uri != null) {
-                imageUri = uri
-                showImage()
-            } else {
-                Toast.makeText(this, "Failed to get image", Toast.LENGTH_SHORT).show()
-            }
-        }
+    private lateinit var database: FirebaseDatabase
+    private lateinit var storage: FirebaseStorage
+    private lateinit var storageReference: StorageReference
+    private var selectedImageUri: Uri? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
         auth = FirebaseAuth.getInstance()
-        firestore = FirebaseFirestore.getInstance()
 
-        // Set up logout btn
-        logoutButton = findViewById(R.id.logout_btn)
-        logoutButton.setOnClickListener {
+        // Periksa apakah Intent berasal dari MenuActivity
+        if (intent.getStringExtra("FROM_ACTIVITY") != "MenuActivity") {
+            // Jika tidak dari MenuActivity, periksa status login
+            if (auth.currentUser != null) {
+                startActivity(Intent(this, MenuActivity::class.java))
+                finish()
+                return
+            } else {
+                startActivity(Intent(this, WelcomeActivity::class.java))
+                finish()
+                return
+            }
+        }
+
+        database = FirebaseDatabase.getInstance()
+        storage = FirebaseStorage.getInstance()
+        storageReference = storage.reference
+
+        // Mengambil data pengguna dari database
+        fetchUserProfile()
+
+        // Mengatur listener untuk tombol edit gambar profil
+        binding.editImage.setOnClickListener {
+            val intent = Intent()
+            intent.type = "image/*"
+            intent.action = Intent.ACTION_GET_CONTENT
+            startActivityForResult(intent, 100)
+        }
+
+        // Mengatur listener untuk tombol edit nama, bio, dan nomor telepon
+        binding.editName.setOnClickListener { binding.inputName.isEnabled = true }
+        binding.editBio.setOnClickListener { binding.inputBio.isEnabled = true }
+        binding.editPhone.setOnClickListener { binding.inputPhone.isEnabled = true }
+
+        // Mengatur listener untuk tombol save
+        binding.btnSave.setOnClickListener {
+            updateUserProfile()
+        }
+
+        // Mengatur listener untuk tombol logout
+        binding.logoutBtn.setOnClickListener {
             auth.signOut()
-            startActivity(Intent(this, LoginActivity::class.java))
+            val intent = Intent(this, WelcomeActivity::class.java)
+            startActivity(intent)
             finish()
         }
-
-        saveButton = findViewById(R.id.btn_save)
-        saveButton.setOnClickListener {
-            updateUserData()
-        }
-
-        // Add edit image btn
-        editImageButton = findViewById(R.id.edit_image)
-        profile_ImageView = findViewById(R.id.profile_image)
-
-        editImageButton.setOnClickListener {
-            openGallery()
-        }
-
-        // Load data userss
-        loadUserData()
-
-        // sett window insets to the main view
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
     }
 
-    private fun loadUserData() {
-        val userId = auth.currentUser?.uid
-        if (userId != null) {
-            firestore.collection("users").document(userId)
-                .get()
-                .addOnSuccessListener { document ->
-                    if (document != null) {
-                        val name = document.getString("name")
-                        val bio = document.getString("bio")
-                        val phone = document.getString("phone_number")
-                        val profileImageUrl = document.getString("profile_picture")
+    private fun fetchUserProfile() {
+        val currentUser = auth.currentUser ?: return // Jika currentUser null, hentikan fungsi
+        val userReference = database.reference.child(Config.USERS).child(currentUser.uid)
 
-                        findViewById<TextInputEditText>(R.id.input_name).setText(name)
-                        findViewById<TextInputEditText>(R.id.input_bio).setText(bio)
-                        findViewById<TextInputEditText>(R.id.input_phone).setText(phone)
+        userReference.addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val user = snapshot.getValue(UserModel::class.java)
+                if (user != null) {
+                    // Menampilkan data profil ke UI
+                    binding.inputName.setText(user.name)
+                    binding.inputBio.setText(user.bio)
+                    binding.inputPhone.setText(user.phone)
 
-                        // Load profile image pake Glide
-                        Glide.with(this).load(profileImageUrl).into(profile_ImageView)
-                    } else {
-                        Toast.makeText(this, "Document does not exist", Toast.LENGTH_SHORT).show()
+                    // Menampilkan foto profil jika ada
+                    user.profileImage?.let { imageUrl ->
+                        Glide.with(this@MainActivity).load(imageUrl).into(binding.profileImage)
                     }
                 }
-                .addOnFailureListener { exception ->
-                    Toast.makeText(this, "Error getting document: ${exception.message}", Toast.LENGTH_SHORT).show()
-                }
-        }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Toast.makeText(this@MainActivity, "Error loading profile", Toast.LENGTH_SHORT).show()
+            }
+        })
     }
 
-    private fun openGallery() {
-        launcherGallery.launch("image/*")
-    }
+    private fun updateUserProfile() {
+        val name = binding.inputName.text.toString()
+        val bio = binding.inputBio.text.toString()
+        val phone = binding.inputPhone.text.toString()
 
-    private fun showImage() {
-        imageUri?.let {
-            profile_ImageView.setImageURI(it)
-        }
-    }
-
-    private fun updateUserData() {
-        val userId = auth.currentUser?.uid
-        if (userId != null) {
-            val name = findViewById<TextInputEditText>(R.id.input_name).text.toString()
-            val bio = findViewById<TextInputEditText>(R.id.input_bio).text.toString()
-            val phone = findViewById<TextInputEditText>(R.id.input_phone).text.toString()
-
-            val userData = mapOf(
-                "name" to name,
-                "bio" to bio,
-                "phone_number" to phone
+        val currentUser = auth.currentUser
+        if (currentUser != null) {
+            val userReference = database.reference.child(Config.USERS).child(currentUser.uid)
+            // Update data pengguna di database
+            val updatedUser = UserModel(
+                uid = currentUser.uid,
+                name = name,
+                bio = bio,
+                phone = phone,
+                profileImage = currentUser.photoUrl?.toString() // Ambil URL gambar profil dari auth
             )
-
-            firestore.collection("users").document(userId)
-                .update(userData)
+            userReference.setValue(updatedUser)
                 .addOnSuccessListener {
-                    // If imageUri is not null, upload the image and save its URL
-                    if (imageUri != null) {
-                        uploadImageAndSaveUri()
-                    } else {
-                        Toast.makeText(this, "Data updated successfully", Toast.LENGTH_SHORT).show()
-                    }
+                    Toast.makeText(this@MainActivity, "Profile updated", Toast.LENGTH_SHORT).show()
+                    binding.inputName.isEnabled = false
+                    binding.inputBio.isEnabled = false
+                    binding.inputPhone.isEnabled = false
                 }
-                .addOnFailureListener { exception ->
-                    Toast.makeText(this, "Error updating data: ${exception.message}", Toast.LENGTH_SHORT).show()
+                .addOnFailureListener { e ->
+                    Toast.makeText(this@MainActivity, "Error updating profile: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
+
+            // Update foto profil jika ada yang dipilih
+            selectedImageUri?.let { uri ->
+                uploadProfileImage(uri)
+            }
         }
     }
-    private fun uploadImageAndSaveUri() {
-        val userId = auth.currentUser?.uid
-        val storageRef: StorageReference = FirebaseStorage.getInstance().reference
-            .child("profile_images/${UUID.randomUUID()}")
 
-        imageUri?.let {
-            storageRef.putFile(it)
-                .addOnSuccessListener { taskSnapshot ->
-                    taskSnapshot.metadata?.reference?.downloadUrl?.addOnSuccessListener { uri ->
-                        val profileImageUrl = uri.toString()
-                        firestore.collection("users").document(userId!!)
-                            .update("profile_picture", profileImageUrl)
+    private fun uploadProfileImage(imageUri: Uri) {
+        val currentUser = auth.currentUser
+        if (currentUser != null) {
+            val imageRef: StorageReference = storageReference.child("images/${currentUser.uid}/${UUID.randomUUID()}")
+
+            imageRef.putFile(imageUri)
+                .addOnSuccessListener { _ ->
+                    // Dapatkan URL gambar yang diupload
+                    imageRef.downloadUrl.addOnSuccessListener { downloadUri ->
+                        // Update URL gambar profil di database
+                        val userReference = database.reference.child(Config.USERS).child(currentUser.uid)
+                        userReference.child("profileImage").setValue(downloadUri.toString())
                             .addOnSuccessListener {
-                                Toast.makeText(this, "Profile picture updated", Toast.LENGTH_SHORT).show()
-                                Glide.with(this).load(profileImageUrl).into(profile_ImageView)
+                                Toast.makeText(this@MainActivity, "Profile image updated", Toast.LENGTH_SHORT).show()
                             }
-                            .addOnFailureListener { exception ->
-                                Toast.makeText(this, "Error updating profile picture: ${exception.message}", Toast.LENGTH_SHORT).show()
+                            .addOnFailureListener { e ->
+                                Toast.makeText(this@MainActivity, "Error updating profile image: ${e.message}", Toast.LENGTH_SHORT).show()
                             }
                     }
                 }
-                .addOnFailureListener { exception ->
-                    Toast.makeText(this, "Error uploading image: ${exception.message}", Toast.LENGTH_SHORT).show()
+                .addOnFailureListener { e ->
+                    Toast.makeText(this@MainActivity, "Error uploading image: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
         }
     }
 
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == 100 && resultCode == Activity.RESULT_OK && data != null && data.data != null) {
+            selectedImageUri = data.data
+            Glide.with(this).load(selectedImageUri).into(binding.profileImage)
+        }
+    }
 }

@@ -6,101 +6,103 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageButton
-import androidx.appcompat.widget.SearchView
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
-import com.example.runtimechatapp.Adapter.UserAdapter
-import com.example.runtimechatapp.R
-import com.example.runtimechatapp.data.User
+import com.example.runtimechatapp.Adapter.ContactAdapter
+import com.example.runtimechatapp.databinding.FragmentContactBinding
+import com.example.runtimechatapp.model.UserModel
 import com.example.runtimechatapp.ui.AddContactActivity
 import com.example.runtimechatapp.ui.MessageActivity
-import com.google.firebase.firestore.FirebaseFirestore
+import com.example.runtimechatapp.utils.Config
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.*
 
 class ContactFragment : Fragment() {
 
-    private val db = FirebaseFirestore.getInstance()
-    private val contactList = mutableListOf<User>()
-    private lateinit var adapter: UserAdapter
-    private lateinit var searchView: SearchView
+    private var _binding: FragmentContactBinding? = null
+    private val binding get() = _binding!!
+    private lateinit var auth: FirebaseAuth
+    private lateinit var database: FirebaseDatabase
+    private lateinit var adapter: ContactAdapter
+    private val contactList = mutableListOf<UserModel>()
 
-
-    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?,
-                              savedInstanceState: Bundle?): View? {
-        Log.d("ContactFragment", "onCreateView called")
-        return inflater.inflate(R.layout.fragment_contact, container, false)
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        _binding = FragmentContactBinding.inflate(inflater, container, false)
+        return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        Log.d("ContactFragment", "onViewCreated called")
 
-        val recyclerView: RecyclerView = view.findViewById(R.id.rv_contact)
-        val btnAddContact: ImageButton = view.findViewById(R.id.btn_add_contact)
+        auth = FirebaseAuth.getInstance()
+        database = FirebaseDatabase.getInstance()
 
-        // Set layout manager and adapter
-        recyclerView.layoutManager = LinearLayoutManager(context)
-        adapter = UserAdapter(contactList) { user ->
-            val intent = Intent(activity, MessageActivity::class.java).apply {
-                putExtra("USER_ID", user.userId)
-                putExtra("USER_NAME", user.name)
-                putExtra("USER_PROFILE_PICTURE", user.profile_picture)
-            }
+        binding.btnAddContact.setOnClickListener {
+            val intent = Intent(requireContext(), AddContactActivity::class.java)
             startActivity(intent)
         }
-        recyclerView.adapter = adapter
 
-        fetchContacts()
-
-        btnAddContact.setOnClickListener {
-            val intent = Intent(context, AddContactActivity::class.java)
+        binding.rvContact.layoutManager = LinearLayoutManager(requireContext())
+        adapter = ContactAdapter(contactList) { contact ->
+            val intent = Intent(requireContext(), MessageActivity::class.java)
+            intent.putExtra("contactUid", contact.uid)
             startActivity(intent)
         }
-        searchView = activity?.findViewById(R.id.search_view)!!
-        setupSearchView()
+        binding.rvContact.adapter = adapter
+
+        getContactList()
     }
 
-    private fun setupSearchView() {
-        searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
-            override fun onQueryTextSubmit(query: String?): Boolean {
-                return false
+    private fun getContactList() {
+        val currentUserId = auth.currentUser?.uid ?: return
+
+        val contactsRef = database.reference.child(Config.CONTACTS).child(currentUserId)
+
+        contactsRef.addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                contactList.clear()
+
+                for (contactSnapshot in snapshot.children) {
+                    val contactUid = contactSnapshot.key
+
+                    if (contactList.any { it.uid == contactUid }) continue
+
+                    database.reference.child(Config.USERS).child(contactUid!!)
+                        .addListenerForSingleValueEvent(object : ValueEventListener {
+                            override fun onDataChange(userSnapshot: DataSnapshot) {
+                                val contact = userSnapshot.getValue(UserModel::class.java)
+                                if (contact != null) {
+                                    contactList.add(contact)
+                                    adapter.notifyItemInserted(contactList.size - 1)
+                                }
+                            }
+
+                            override fun onCancelled(error: DatabaseError) {
+                                Log.e("ContactFragment", "Error getting contact details: ${error.message}")
+                            }
+                        })
+                }
             }
 
-            override fun onQueryTextChange(newText: String?): Boolean {
-                filterContacts(newText ?: "")
-                return true
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("ContactFragment", "Error getting contact list: ${error.message}")
             }
         })
     }
-    private fun filterContacts(query: String) {
-        val filteredList = if (query.isEmpty()) {
-            contactList
-        } else {
-            contactList.filter {
-                it.name.contains(query, ignoreCase = true)
-            }
+
+    fun onSearchQuery(query: String) {
+        val filteredList = contactList.filter { contact ->
+            contact.name?.lowercase()?.contains(query.lowercase()) == true ||
+                    contact.phone?.lowercase()?.contains(query.lowercase()) == true
         }
         adapter.updateList(filteredList)
     }
 
-    private fun fetchContacts() {
-        db.collection("users").get().addOnSuccessListener { documents ->
-            Log.d("ContactFragment", "Data fetched: ${documents.size()} documents")
-            contactList.clear()
-            for (document in documents) {
-                val user = document.toObject(User::class.java)
-                contactList.add(user)
-                Log.d("ContactFragment", "User added: $user") // Log each user added
-            }
-            adapter.notifyDataSetChanged()
-        }.addOnFailureListener { exception ->
-            Log.e("ContactFragment", "Error getting documents: ", exception)
-        }
-    }
-
-
-    fun onSearchQuery(query: String) {
-        filterContacts(query)
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 }

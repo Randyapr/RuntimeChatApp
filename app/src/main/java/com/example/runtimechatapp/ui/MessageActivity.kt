@@ -1,182 +1,113 @@
 package com.example.runtimechatapp.ui
 
-import android.content.Intent
-import android.icu.text.SimpleDateFormat
 import android.os.Bundle
-import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.Toolbar
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.bumptech.glide.Glide
 import com.example.runtimechatapp.Adapter.MessageAdapter
-import com.example.runtimechatapp.R
-import com.example.runtimechatapp.data.ItemMessage
-import com.example.runtimechatapp.data.Message
 import com.example.runtimechatapp.databinding.ActivityMessageBinding
-import com.example.runtimechatapp.ui.auth.LoginActivity
-import com.firebase.ui.database.FirebaseRecyclerOptions
+import com.example.runtimechatapp.model.MessageModel
+import com.example.runtimechatapp.model.UserModel
+import com.example.runtimechatapp.utils.Config
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.FirebaseDatabase
-import de.hdodenhof.circleimageview.CircleImageView
-import java.util.Date
-import java.util.Locale
+import com.google.firebase.database.*
+import java.text.SimpleDateFormat
+import java.util.*
 
 class MessageActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMessageBinding
     private lateinit var auth: FirebaseAuth
-    private lateinit var db: FirebaseDatabase
-    private lateinit var adapter: MessageAdapter
+    private lateinit var database: FirebaseDatabase
+    private lateinit var senderUid: String
+    private lateinit var receiverUid: String
+    private lateinit var messageAdapter: MessageAdapter
+    private val messageList = mutableListOf<MessageModel>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMessageBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-
-        val toolbar: Toolbar = findViewById(R.id.toolbar_message)
-        setSupportActionBar(toolbar)
-        supportActionBar?.setDisplayShowTitleEnabled(false)
-
-        toolbar.setNavigationOnClickListener {
-            onBackPressed()
-        }
-
-        val userId = intent.getStringExtra("USER_ID") ?: return
-        val userName = intent.getStringExtra("USER_NAME")
-        val userProfilePicture = intent.getStringExtra("USER_PROFILE_PICTURE")
-
-        val tvName: TextView = findViewById(R.id.tv_name_atas)
-        tvName.text = userName
-
-        val ivProfile: CircleImageView = findViewById(R.id.iv_contact)
-        userProfilePicture?.let {
-            Glide.with(this)
-                .load(it)
-                .circleCrop()
-                .into(ivProfile)
-        }
-
         auth = FirebaseAuth.getInstance()
-        val firebaseUser = auth.currentUser
-        if (firebaseUser == null) {
-            startActivity(Intent(this, LoginActivity::class.java))
-            finish()
-            return
-        }
+        database = FirebaseDatabase.getInstance()
+        senderUid = auth.currentUser?.uid.toString()
+        receiverUid = intent.getStringExtra("contactUid") ?: ""
 
-        val db = FirebaseDatabase.getInstance().reference
+        // Mengambil data kontak dan menampilkannya di toolbar
+        getContactDetails(receiverUid)
 
-        val chatId = firebaseUser.uid
+        // Inisialisasi RecyclerView dan adapter
+        binding.messageRecyclerView.layoutManager = LinearLayoutManager(this)
+        messageAdapter = MessageAdapter(messageList, senderUid)
+        binding.messageRecyclerView.adapter = messageAdapter
 
-        val messagesRef = db.child(chatId).child(userId)
+        // Mengambil data pesan dari Firebase
+        getMessages()
 
-        val messageRefSender = db.child("chats").child(chatId).child(userId)
-        val messageRefReceiver = db.child("chats").child(userId).child(chatId)
-
+        // Mengirim pesan saat tombol Send diklik
         binding.sendButton.setOnClickListener {
-
-//            val chat = Chat(
-//                member = listOf(
-//                    firebaseUser.uid,
-//                    userId
-//                ),
-//                lastMessageSent = firebaseUser.uid
-//            )
-//
-//            val chatMessage = ChatMessage(
-//                sentBy = firebaseUser.uid,
-//                sentTo = userId,
-//                messageTime = Date().time,
-//                message = binding.messageEditText.text.toString()
-//            )
-//
-//            val chats = mapOf(
-//                "0" to firebaseUser.uid,
-//                "1" to userId
-//            )
-//
-//            Log.d("CHAT", "onCreate: $chat")
-//
-//            val userChatId = "chat-${firebaseUser.uid}-$userId"
-//
-//            db.child("chats").child(userChatId).setValue(chat)
-//            db.child("chatMessage").child(userChatId)
-//                .child("${firebaseUser.uid}-${chatMessage.messageTime}").setValue(chatMessage)
-//            db.child("userChats").child(firebaseUser.uid).child(userChatId).setValue(chats)
-
-            val dateFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
-            val convertTime = dateFormat.format(Date(Date().time))
-
-            val friendlyMessage = Message(
-                sentTo = userId,
-                lastMessage = binding.messageEditText.text.toString(),
-                timestamp = convertTime,
-                nameReceiver = userName,
-                photoUrl = userProfilePicture,
-                item = listOf(
-                    ItemMessage(
-                        text = binding.messageEditText.text.toString(),
-                        timestamp = convertTime,
-                    )
-                )
-            )
-
-            val receiver = Message(
-                sentTo = firebaseUser.uid,
-                lastMessage = binding.messageEditText.text.toString(),
-                timestamp = convertTime,
-                nameReceiver = firebaseUser.displayName,
-                photoUrl = firebaseUser.photoUrl.toString(),
-                item = listOf(
-                    ItemMessage(
-                        text = binding.messageEditText.text.toString(),
-                        timestamp = convertTime,
-                    )
-                )
-            )
-            db.child("chats").child(userId).child(chatId).setValue(receiver)
-            db.child("chats").child(chatId).child(userId).setValue(friendlyMessage)
-
-            messagesRef.push().setValue(friendlyMessage) { error, _ ->
-                if (error != null) {
-                    Toast.makeText(
-                        this,
-                        getString(R.string.send_error) + error.message,
-                        Toast.LENGTH_SHORT
-                    ).show()
-                } else {
-                    Toast.makeText(this, getString(R.string.send_success), Toast.LENGTH_SHORT)
-                        .show()
-                }
+            val messageText = binding.messageEditText.text.toString()
+            if (messageText.isNotEmpty()) {
+                sendMessage(messageText)
+                binding.messageEditText.text.clear()
             }
-            binding.messageEditText.setText("")
         }
-
-        val manager = LinearLayoutManager(this)
-        manager.stackFromEnd = true
-        binding.messageRecyclerView.layoutManager = manager
-
-        val options = FirebaseRecyclerOptions.Builder<Message>()
-            .setQuery(messagesRef, Message::class.java)
-            .build()
-
-        adapter = MessageAdapter(options, firebaseUser.uid)
-        binding.messageRecyclerView.adapter = adapter
     }
 
-    override fun onResume() {
-        super.onResume()
-        adapter.startListening()
+    private fun getContactDetails(uid: String) {
+        database.reference.child(Config.USERS).child(uid)
+            .addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val contact = snapshot.getValue(UserModel::class.java)
+                    if (contact != null) {
+                        binding.tvNameAtas.text = contact.name
+                        Glide.with(this@MessageActivity)
+                            .load(contact.profileImage)
+                            .into(binding.ivContact)
+                    }
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    Toast.makeText(this@MessageActivity, "Error loading contact details", Toast.LENGTH_SHORT).show()
+                }
+            })
     }
 
-    override fun onPause() {
-        adapter.stopListening()
-        super.onPause()
+    private fun getMessages() {
+        database.reference.child(Config.CHATS)
+            .child(senderUid).child(receiverUid)
+            .addValueEventListener(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    messageList.clear()
+                    for (messageSnapshot in snapshot.children) {
+                        val message = messageSnapshot.getValue(MessageModel::class.java)
+                        if (message != null) {
+                            messageList.add(message)
+                        }
+                    }
+                    messageAdapter.notifyDataSetChanged()
+                    // Gulir ke posisi pesan terakhir
+                    binding.messageRecyclerView.scrollToPosition(messageList.size - 1)
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    Toast.makeText(this@MessageActivity, "Error loading messages", Toast.LENGTH_SHORT).show()
+                }
+            })
     }
 
-    companion object {
-        const val MESSAGES_CHILD = "Messages"
+    private fun sendMessage(messageText: String) {
+        val message = MessageModel(
+            senderId = senderUid,
+            receiverId = receiverUid,
+            message = messageText,
+            timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+        )
+
+        database.reference.child(Config.CHATS)
+            .child(senderUid).child(receiverUid).push().setValue(message)
+        database.reference.child(Config.CHATS).child(receiverUid).child(senderUid).push().setValue(message)
     }
 }

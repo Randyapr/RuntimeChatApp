@@ -1,71 +1,69 @@
 package com.example.runtimechatapp.Adapter
 
-import android.icu.text.SimpleDateFormat
-import android.text.format.DateUtils
 import android.view.LayoutInflater
 import android.view.ViewGroup
-import android.widget.TextView
-import androidx.databinding.ViewDataBinding
 import androidx.recyclerview.widget.RecyclerView
-import com.bumptech.glide.Glide
-import com.example.runtimechatapp.R
-import com.example.runtimechatapp.data.Message
-import com.example.runtimechatapp.databinding.ItemMessageBinding
 import com.example.runtimechatapp.databinding.ItemMessageLeftBinding
 import com.example.runtimechatapp.databinding.ItemMessageRightBinding
-import com.firebase.ui.database.FirebaseRecyclerAdapter
-import com.firebase.ui.database.FirebaseRecyclerOptions
-import java.util.Date
-import java.util.Locale
+import com.example.runtimechatapp.model.MessageModel
 
 class MessageAdapter(
-    options: FirebaseRecyclerOptions<Message>,
-    private val currentUserName: String?
-) : FirebaseRecyclerAdapter<Message, MessageAdapter.MessageViewHolder>(options) {
+    private val messageList: List<MessageModel>,
+    private val senderUid: String
+) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
-    private val VIEW_TYPE_MESSAGE_ME = 1
-    private val VIEW_TYPE_MESSAGE_OTHER = 2
-
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MessageViewHolder {
-        val inflater = LayoutInflater.from(parent.context)
-        val binding = if (viewType == VIEW_TYPE_MESSAGE_ME) {
-            ItemMessageRightBinding.inflate(inflater, parent, false)
-        } else {
-            ItemMessageLeftBinding.inflate(inflater, parent, false)
-        }
-        return MessageViewHolder(binding)
+    companion object {
+        const val ITEM_TYPE_RIGHT = 1
+        const val ITEM_TYPE_LEFT = 2
     }
 
-    override fun onBindViewHolder(holder: MessageViewHolder, position: Int, model: Message) {
-        holder.bind(model)
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        return if (viewType == ITEM_TYPE_RIGHT) {
+            val binding = ItemMessageRightBinding.inflate(
+                LayoutInflater.from(parent.context),
+                parent,
+                false
+            )
+            MessageRightViewHolder(binding)
+        } else {
+            val binding = ItemMessageLeftBinding.inflate(
+                LayoutInflater.from(parent.context),
+                parent,
+                false
+            )
+            MessageLeftViewHolder(binding)
+        }
+    }
+
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        val message = messageList[position]
+
+        if (holder.javaClass == MessageRightViewHolder::class.java) {
+            val viewHolder = holder as MessageRightViewHolder
+            viewHolder.binding.pesanKanan.text = message.message
+            viewHolder.binding.timeView.text = message.timestamp
+        } else {
+            val viewHolder = holder as MessageLeftViewHolder
+            viewHolder.binding.pesanKiri.text = message.message
+            viewHolder.binding.timeKiri.text = message.timestamp
+        }
+    }
+
+    override fun getItemCount(): Int {
+        return messageList.size
     }
 
     override fun getItemViewType(position: Int): Int {
-        val message = getItem(position)
-        return if (currentUserName == message.sentTo) {
-            VIEW_TYPE_MESSAGE_OTHER
+        return if (messageList[position].senderId == senderUid) {
+            ITEM_TYPE_RIGHT
         } else {
-            VIEW_TYPE_MESSAGE_ME
+            ITEM_TYPE_LEFT
         }
     }
 
+    inner class MessageRightViewHolder(val binding: ItemMessageRightBinding) :
+        RecyclerView.ViewHolder(binding.root)
 
-    inner class MessageViewHolder(private val binding: ViewDataBinding) :
-        RecyclerView.ViewHolder(binding.root) {
-        fun bind(item: Message) {
-            if (binding is ItemMessageLeftBinding) {
-                binding.pesanKiri.text = item.lastMessage
-                val dateFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
-                binding.timeKiri.text = item.timestamp
-            } else if (binding is ItemMessageRightBinding) {
-                binding.pesanKanan.text = item.lastMessage
-                val dateFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
-                binding.timeView.text = item.timestamp
-//                Glide.with(itemView.context)
-//                    .load(item.photoUrl)
-//                    .circleCrop()
-//                    .into(binding.iv_contact)
-            }
-        }
-    }
+    inner class MessageLeftViewHolder(val binding: ItemMessageLeftBinding) :
+        RecyclerView.ViewHolder(binding.root)
 }

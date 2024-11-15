@@ -9,7 +9,7 @@
     <string name="region">Region: </string>
     <string name="phone">Phone: </string>
     <string name="login_failed">"Login failed"</string>
-    <string name="next">Send OTP</string>
+    <string name="next">Get OTP</string>
     <string name="please">Please enter your Phone Number</string>
     <string name="enter_otp">Please enter your OTP Code</string>
     <string name="otp">OTP : </string>

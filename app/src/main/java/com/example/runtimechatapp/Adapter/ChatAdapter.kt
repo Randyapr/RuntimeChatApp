@@ -1,61 +1,43 @@
 package com.example.runtimechatapp.Adapter
 
-import android.util.Log
 import android.view.LayoutInflater
-import android.view.View
 import android.view.ViewGroup
-import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
-import com.example.runtimechatapp.R
-import com.example.runtimechatapp.data.ChatItem
-import com.example.runtimechatapp.data.User
-import de.hdodenhof.circleimageview.CircleImageView
+import com.example.runtimechatapp.databinding.ItemChatBinding
+import com.example.runtimechatapp.model.ChatListModel
 
 class ChatAdapter(
-    private val chatList: List<ChatItem>,
-    private val onItemClick: (ChatItem) -> Unit
-) : RecyclerView.Adapter<ChatAdapter.UserViewHolder>() {
+    private val chatList: List<ChatListModel>,
+    private val onChatClick: (ChatListModel) -> Unit
+) : RecyclerView.Adapter<ChatAdapter.ChatViewHolder>() {
 
-    inner class UserViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        val nameTextView: TextView = itemView.findViewById(R.id.username)
-        val lastMessage : TextView = itemView.findViewById(R.id.last_message)
-        val timestamp: TextView = itemView.findViewById(R.id.timestamp)
-        val profileImageView: CircleImageView = itemView.findViewById(R.id.iv_profile_image)
+    inner class ChatViewHolder(val binding: ItemChatBinding) :
+        RecyclerView.ViewHolder(binding.root)
 
-        init {
-            itemView.setOnClickListener {
-                val position = adapterPosition
-                if (position != RecyclerView.NO_POSITION) {
-                    onItemClick(chatList[position])
-                }
-            }
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ChatViewHolder {
+        val binding = ItemChatBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        return ChatViewHolder(binding)
+    }
+
+    override fun onBindViewHolder(holder: ChatViewHolder, position: Int) {
+        val chat = chatList[position]
+
+        holder.binding.username.text = chat.name
+        holder.binding.lastMessage.text = chat.lastMessage
+
+        // Load gambar profil jika ada
+        Glide.with(holder.itemView.context)
+            .load(chat.profileImage)
+            .into(holder.binding.ivProfileImage)
+
+        // Set onClickListener untuk item chat
+        holder.itemView.setOnClickListener {
+            onChatClick(chat) // Panggil lambda function
         }
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): UserViewHolder {
-        val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.item_chat, parent, false)
-        return UserViewHolder(view)
+    override fun getItemCount(): Int {
+        return chatList.size
     }
-
-    override fun onBindViewHolder(holder: UserViewHolder, position: Int) {
-        val chatItem = chatList[position]
-        holder.nameTextView.text = chatItem.nameReceiver
-        holder.lastMessage.text = chatItem.lastMessage
-        holder.timestamp.text = chatItem.timestamp.toString()
-        if (chatItem.photoUrl.isNullOrEmpty()) {
-            // Jika kosong, gunakan gambar default
-            Glide.with(holder.itemView.context)
-                .load(R.drawable.circle_bg)
-                .into(holder.profileImageView)
-        } else {
-            // Jika tidak kosong, load gambar dari URL
-            Glide.with(holder.itemView.context)
-                .load(chatItem.photoUrl)
-                .into(holder.profileImageView)
-        }
-        Log.d("ChatAdapter", "Binding user: $chatItem")
-    }
-    override fun getItemCount(): Int = chatList.size
 }

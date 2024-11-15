@@ -5,10 +5,9 @@ import android.os.Bundle
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import com.example.runtimechatapp.ui.auth.LoginActivity
-import com.example.runtimechatapp.MainActivity
-import com.example.runtimechatapp.ui.auth.NameActivity
 import com.example.runtimechatapp.R
 import com.example.runtimechatapp.menu.MenuActivity
+import com.example.runtimechatapp.ui.auth.NameActivity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
@@ -56,5 +55,4 @@ class SplashScreen : AppCompatActivity() {
             finish()
         }
     }
-
 }

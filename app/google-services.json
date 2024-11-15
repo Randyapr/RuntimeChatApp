@@ -1,22 +1,22 @@
 {
   "project_info": {
-    "project_number": "974390426255",
-    "firebase_url": "https://runtime-chat-f0639-default-rtdb.firebaseio.com",
-    "project_id": "runtime-chat-f0639",
-    "storage_bucket": "runtime-chat-f0639.appspot.com"
+    "project_number": "532210390255",
+    "firebase_url": "https://realtime-chat-df0ea-default-rtdb.firebaseio.com",
+    "project_id": "realtime-chat-df0ea",
+    "storage_bucket": "realtime-chat-df0ea.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:974390426255:android:ff5e3c60d783f515c00efa",
+        "mobilesdk_app_id": "1:532210390255:android:4cbaea2110d3f857e3771a",
         "android_client_info": {
-          "package_name": "com.example.runtimechat"
+          "package_name": "com.example.realtime_chat"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBUmZpBM7D5ZCoaNn3zvHG9qBwbU8gTqgI"
+          "current_key": "AIzaSyD_YWtuJ81q79oNlsxcDyWfa_keC4lXQfQ"
         }
       ],
       "services": {
@@ -27,7 +27,7 @@
     },
     {
       "client_info": {
-        "mobilesdk_app_id": "1:974390426255:android:6169d85b204e9903c00efa",
+        "mobilesdk_app_id": "1:532210390255:android:60d363a2dda7172ee3771a",
         "android_client_info": {
           "package_name": "com.example.runtimechatapp"
         }
@@ -35,7 +35,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBUmZpBM7D5ZCoaNn3zvHG9qBwbU8gTqgI"
+          "current_key": "AIzaSyD_YWtuJ81q79oNlsxcDyWfa_keC4lXQfQ"
         }
       ],
       "services": {

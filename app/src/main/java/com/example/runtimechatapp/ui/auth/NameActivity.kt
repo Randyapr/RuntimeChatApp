@@ -1,138 +1,113 @@
 package com.example.runtimechatapp.ui.auth
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
-import android.os.Bundle
-import android.util.Log
-import android.widget.Button
-import android.widget.ImageButton
-import android.widget.ImageView
-import android.widget.ProgressBar
-import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
+import android.os.Bundle
+import android.widget.Toast
 import com.example.runtimechatapp.MainActivity
-import com.example.runtimechatapp.R
+import com.example.runtimechatapp.databinding.ActivityNameBinding
 import com.example.runtimechatapp.menu.MenuActivity
-import com.google.android.material.textfield.TextInputEditText
+import com.example.runtimechatapp.model.UserModel
+import com.example.runtimechatapp.utils.Config
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.storage.FirebaseStorage
-import com.google.firebase.storage.StorageReference
-import java.util.UUID
 
 class NameActivity : AppCompatActivity() {
 
+    private lateinit var binding: ActivityNameBinding
     private lateinit var auth: FirebaseAuth
-    private lateinit var firestore: FirebaseFirestore
+    private lateinit var database: FirebaseDatabase
     private lateinit var storage: FirebaseStorage
-    private lateinit var profileImageView: ImageView
-    private lateinit var nameEditText: TextInputEditText
-    private lateinit var progressBar: ProgressBar
-
-    private val PICK_IMAGE_REQUEST = 71
-    private var imageUri: Uri? = null
-
-    private val launcherGallery =
-        registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-            if (uri != null) {
-                imageUri = uri
-                showImage()
-            } else {
-                Log.d("Pemilih Foto", "Tidak ada media yang dipilih")
-            }
-        }
-
-    private fun showImage() {
-        imageUri?.let {
-            Log.d("Image URI", "showImage: $it")
-            profileImageView.setImageURI(it)
-        }
-    }
+    private var selectedImageUri: Uri? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_name)
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
+        binding = ActivityNameBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        // Sembunyikan support action bar jika ada
+        supportActionBar?.hide()
 
         auth = FirebaseAuth.getInstance()
-        firestore = FirebaseFirestore.getInstance()
+        database = FirebaseDatabase.getInstance()
         storage = FirebaseStorage.getInstance()
 
-        profileImageView = findViewById(R.id.profile_image)
-        nameEditText = findViewById(R.id.txtInputName)
-        progressBar = findViewById(R.id.name_progressbar)
+        // Mengisi nomor telepon secara otomatis
+        val phoneNumber = auth.currentUser?.phoneNumber
+        binding.textinputPhone.setText(phoneNumber)
 
-        val editImageButton: ImageButton = findViewById(R.id.edit_image)
-        val saveButton: Button = findViewById(R.id.Aggre)
-
-        editImageButton.setOnClickListener {
-            openGallery()
+        binding.editImage.setOnClickListener {
+            val intent = Intent()
+            intent.action = Intent.ACTION_GET_CONTENT
+            intent.type = "image/*"
+            startActivityForResult(intent, 1)
         }
 
-        saveButton.setOnClickListener {
-            saveUserData()
-        }
-    }
-
-    private fun openGallery() {
-        launcherGallery.launch("image/*")
-    }
-
-    private fun saveUserData() {
-        val userName = nameEditText.text.toString().trim()
-        val userId = auth.currentUser?.uid
-
-        if (userName.isEmpty()) {
-            Toast.makeText(this, "Please enter your name", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        progressBar.visibility = ProgressBar.VISIBLE
-
-        if (imageUri != null) {
-            val fileName = UUID.randomUUID().toString()
-            val storageRef: StorageReference = storage.reference.child("profile_pictures/$fileName")
-            storageRef.putFile(imageUri!!).addOnSuccessListener {
-                storageRef.downloadUrl.addOnSuccessListener { uri ->
-                    saveUserProfile(userId!!, userName, uri.toString())
-                }.addOnFailureListener {
-                    Log.e("SaveUserData", "Failed to get download URL", it)
-                    progressBar.visibility = ProgressBar.INVISIBLE
-                    Toast.makeText(this, "Failed to get download URL", Toast.LENGTH_SHORT).show()
-                }
-            }.addOnFailureListener {
-                Log.e("SaveUserData", "Failed to upload image", it)
-                progressBar.visibility = ProgressBar.INVISIBLE
-                Toast.makeText(this, "Failed to upload image", Toast.LENGTH_SHORT).show()
+        binding.Aggre.setOnClickListener {
+            binding.nameProgressbar.visibility = android.view.View.VISIBLE
+            val name: String = binding.txtInputName.text.toString()
+            if (name.isEmpty()) {
+                Toast.makeText(this, "Please type your name", Toast.LENGTH_SHORT).show()
+                binding.nameProgressbar.visibility = android.view.View.GONE
+                return@setOnClickListener
             }
-        } else {
-            saveUserProfile(userId!!, userName, "")
+
+            // Jika gambar tidak dipilih, gunakan URL default atau null
+            if (selectedImageUri != null) {
+                uploadImageAndGetUrl(name)
+            } else {
+                uploadUserData(name, null)
+            }
         }
     }
 
-    private fun saveUserProfile(userId: String, userName: String, profileImageUrl: String) {
-        val userProfile = hashMapOf(
-            "name" to userName,
-            "profile_picture" to profileImageUrl
-        )
+    // Fungsi untuk mengupload gambar dan mendapatkan URL, lalu upload data user
+    private fun uploadImageAndGetUrl(name: String) {
+        val storageRef = storage.reference.child("Profile").child(auth.uid!!)
+        storageRef.putFile(selectedImageUri!!).addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                storageRef.downloadUrl.addOnSuccessListener { uri ->
+                    val imageUrl = uri.toString()
+                    uploadUserData(name, imageUrl)
+                }
+            } else {
+                binding.nameProgressbar.visibility = android.view.View.GONE
+                Toast.makeText(this, "Something went wrong", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
-        firestore.collection("users").document(userId).set(userProfile)
+    private fun uploadUserData(name: String, imageUrl: String?) {
+        val uid = auth.uid
+        val phone = auth.currentUser?.phoneNumber
+
+        val user = UserModel(uid, name, phone, imageUrl)
+
+        database.reference
+            .child(Config.USERS)
+            .child(uid!!)
+            .setValue(user)
             .addOnSuccessListener {
-                progressBar.visibility = ProgressBar.INVISIBLE
-                Toast.makeText(this, "Profile updated", Toast.LENGTH_SHORT).show()
-                startActivity(Intent(this, MenuActivity::class.java))
+                binding.nameProgressbar.visibility = android.view.View.GONE
+                val intent = Intent(this, MenuActivity::class.java)
+                startActivity(intent)
                 finish()
             }
-            .addOnFailureListener {
-                progressBar.visibility = ProgressBar.INVISIBLE
-                Toast.makeText(this, "Error updating profile", Toast.LENGTH_SHORT).show()
+            .addOnFailureListener { e ->
+                binding.nameProgressbar.visibility = android.view.View.GONE
+                Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
             }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == 1 && resultCode == Activity.RESULT_OK && data != null) {
+            selectedImageUri = data.data
+            binding.profileImage.setImageURI(selectedImageUri)
+        }
     }
 }

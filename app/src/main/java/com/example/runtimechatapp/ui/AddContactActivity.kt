@@ -2,55 +2,103 @@ package com.example.runtimechatapp.ui
 
 import android.os.Bundle
 import android.util.Log
-import android.widget.Button
-import android.widget.EditText
+import android.view.View
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.example.runtimechatapp.Adapter.UserAdapter
-import com.example.runtimechatapp.R
-import com.example.runtimechatapp.data.User
+import com.example.runtimechatapp.databinding.ActivityAddContactBinding
+import com.example.runtimechatapp.utils.Config
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.database.*
+import com.google.i18n.phonenumbers.NumberParseException
+import com.google.i18n.phonenumbers.PhoneNumberUtil
 
 class AddContactActivity : AppCompatActivity() {
 
-    private lateinit var db: FirebaseFirestore
-    private val contactList = mutableListOf<User>()
-    private lateinit var adapter: UserAdapter
+    private lateinit var binding: ActivityAddContactBinding
+    private lateinit var auth: FirebaseAuth
+    private lateinit var database: FirebaseDatabase
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_add_contact)
+        binding = ActivityAddContactBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
-        db = FirebaseFirestore.getInstance()
+        auth = FirebaseAuth.getInstance()
+        database = FirebaseDatabase.getInstance()
 
-        val etName = findViewById<EditText>(R.id.input_name)
-        val etPhoneNumber = findViewById<EditText>(R.id.input_phone)
-        val btnSave = findViewById<Button>(R.id.save)
-        val btnCancel = findViewById<Button>(R.id.btn_cancel)
+        binding.save.setOnClickListener {
+            val name = binding.inputName.text.toString()
+            val phone = binding.inputPhone.text.toString()
 
-        btnSave.setOnClickListener {
-            val name = etName.text.toString()
-            val phoneNumber = etPhoneNumber.text.toString()
-
-            if (name.isNotEmpty() && phoneNumber.isNotEmpty()) {
-                saveContactToFirestore(name, phoneNumber)
+            if (name.isEmpty() || phone.isEmpty()) {
+                Toast.makeText(this, "Please fill all fields", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
             }
+
+            addContactToDatabase(name, phone)
         }
 
-        btnCancel.setOnClickListener {
+        binding.btnCancel.setOnClickListener {
             finish()
         }
     }
 
-    private fun saveContactToFirestore(name: String, phoneNumber: String) {
-        val userId = db.collection("users").document("User").id
-        val newUser = User(userId, name, phoneNumber, "Busy", "")
+    private fun addContactToDatabase(name: String, phone: String) {
+        binding.nameProgressbar.visibility = View.VISIBLE
 
-        db.collection("users").document(userId).set(newUser).addOnSuccessListener {
-            contactList.add(newUser)
-            adapter.notifyDataSetChanged()
-        }.addOnFailureListener { exception ->
-            Log.e("ContactFragment", "Error adding new contact: ", exception)
+        val phoneNumberUtil = PhoneNumberUtil.getInstance()
+        try {
+            val phoneNumber = phoneNumberUtil.parse(phone, "ID")
+            val formattedPhone = phoneNumberUtil.format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164)
+
+            if (formattedPhone == auth.currentUser?.phoneNumber) {
+                binding.nameProgressbar.visibility = View.GONE
+                Toast.makeText(this, "Tidak bisa menambah kontak sendiri", Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            val usersRef = database.reference.child(Config.USERS)
+            val query = usersRef.orderByChild("phone").equalTo(formattedPhone)
+
+            query.addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    if (snapshot.exists()) {
+                        for (userSnapshot in snapshot.children) {
+                            val contactUid = userSnapshot.key
+
+                            val currentUserId = auth.currentUser?.uid
+                            val contactsRef = database.reference.child(Config.CONTACTS)
+                                .child(currentUserId!!)
+                                .child(contactUid!!)
+
+                            contactsRef.setValue(true)
+                                .addOnSuccessListener {
+                                    binding.nameProgressbar.visibility = View.GONE
+                                    Toast.makeText(this@AddContactActivity, "Contact Berhasil Ditambahkan", Toast.LENGTH_SHORT).show()
+                                    finish()
+                                }
+                                .addOnFailureListener { e ->
+                                    binding.nameProgressbar.visibility = View.GONE
+                                    Toast.makeText(this@AddContactActivity, "Error untuk menambah contact: ${e.message}", Toast.LENGTH_SHORT).show()
+                                }
+                            break
+                        }
+                    } else {
+                        binding.nameProgressbar.visibility = View.GONE
+                        Toast.makeText(this@AddContactActivity, "Nomor tidak terdaftar", Toast.LENGTH_SHORT).show()
+                    }
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    binding.nameProgressbar.visibility = View.GONE
+                    Toast.makeText(this@AddContactActivity, "Error validating phone number", Toast.LENGTH_SHORT).show()
+                    Log.e("AddContactActivity", "Error validating phone number: ${error.message}")
+                }
+            })
+        } catch (e: NumberParseException) {
+            binding.nameProgressbar.visibility = View.GONE
+            Toast.makeText(this, "Nomor telepon tidak valid", Toast.LENGTH_SHORT).show()
+            Log.e("AddContactActivity", "Error parsing phone number: ${e.message}")
         }
     }
 }

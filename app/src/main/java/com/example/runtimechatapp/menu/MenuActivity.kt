@@ -54,7 +54,16 @@ class MenuActivity : AppCompatActivity() {
 
         auth = FirebaseAuth.getInstance()
 
-        contactFragment = supportFragmentManager.findFragmentByTag("f1") as? ContactFragment
+        // Dapatkan referensi ke ContactFragment setelah ViewPager2 dibuat
+        viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+            override fun onPageSelected(position: Int) {
+                super.onPageSelected(position)
+                if (position == 1) { // Assuming ContactFragment is at position 1
+                    contactFragment = supportFragmentManager.findFragmentByTag("f" + (position + 1)) as? ContactFragment
+                }
+            }
+        })
+
 
         searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
@@ -62,6 +71,7 @@ class MenuActivity : AppCompatActivity() {
             }
 
             override fun onQueryTextChange(newText: String?): Boolean {
+                // Panggil onSearchQuery hanya jika contactFragment tidak null
                 contactFragment?.onSearchQuery(newText ?: "")
                 return true
             }
@@ -69,8 +79,9 @@ class MenuActivity : AppCompatActivity() {
         val profileIcon: ImageView = findViewById(R.id.profile_icon)
         profileIcon.setOnClickListener {
             val intent = Intent(this, MainActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP
+            intent.putExtra("FROM_ACTIVITY", "MenuActivity")
             startActivity(intent)
         }
     }
-
 }

@@ -58,6 +58,8 @@ dependencies {
     implementation(libs.firebase.database)
     implementation(libs.firebase.ui.database)
     implementation(libs.androidx.recyclerview)
+    implementation(libs.androidx.datastore.core.android)
+    implementation(libs.core)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -65,5 +67,10 @@ dependencies {
     implementation(libs.circleimageview)
     implementation(libs.androidx.viewpager2)
     implementation(libs.glide)
+    implementation(libs.firebase.ui.firestore)
+    implementation(libs.glide.v4151)
+    annotationProcessor(libs.compiler)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.libphonenumber)
 
 }

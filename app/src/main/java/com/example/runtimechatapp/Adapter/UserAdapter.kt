@@ -13,7 +13,8 @@ import de.hdodenhof.circleimageview.CircleImageView
 
 class UserAdapter(
     private var userList: List<User>,
-    private val onItemClick: (User) -> Unit
+    private val onItemClick: (User) -> Unit,
+    private val onItemLongClick: (User) -> Unit // Callback untuk klik panjang
 ) : RecyclerView.Adapter<UserAdapter.UserViewHolder>() {
 
     inner class UserViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -27,6 +28,14 @@ class UserAdapter(
                 if (position != RecyclerView.NO_POSITION) {
                     onItemClick(userList[position])
                 }
+            }
+
+            itemView.setOnLongClickListener {
+                val position = adapterPosition
+                if (position != RecyclerView.NO_POSITION) {
+                    onItemLongClick(userList[position])
+                }
+                true
             }
         }
     }
@@ -42,18 +51,14 @@ class UserAdapter(
         holder.nameTextView.text = user.name
         holder.bioTextView.text = user.bio
         if (user.profile_picture.isNullOrEmpty()) {
-            // Jika kosong, gunakan gambar default
             Glide.with(holder.itemView.context)
                 .load(R.drawable.circle_bg)
                 .into(holder.profileImageView)
         } else {
-            // Jika tidak kosong, load gambar dari URL
             Glide.with(holder.itemView.context)
                 .load(user.profile_picture)
                 .into(holder.profileImageView)
         }
-
-            Log.d("UserAdapter", "Binding user: $user") // Log user data being bound
     }
 
     override fun getItemCount(): Int = userList.size
