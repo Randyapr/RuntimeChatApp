@@ -4,28 +4,33 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.example.runtimechatapp.Adapter.MessageAdapter
 import com.example.runtimechatapp.R
 import com.example.runtimechatapp.databinding.ActivityMessageBinding
-import com.example.runtimechatapp.menu.ChatFragment
 import com.example.runtimechatapp.model.MessageModel
 import com.example.runtimechatapp.model.UserModel
 import com.example.runtimechatapp.utils.Config
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.*
+import com.google.firebase.database.ChildEventListener
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.FirebaseDatabase
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
 
 class MessageActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivityMessageBinding
+    lateinit var binding: ActivityMessageBinding
     private lateinit var auth: FirebaseAuth
     private lateinit var database: FirebaseDatabase
     private lateinit var senderUid: String
     private lateinit var receiverUid: String
-    private lateinit var messageAdapter: MessageAdapter
-    private val messageList = mutableListOf<MessageModel>()
+    lateinit var messageAdapter: MessageAdapter
+    lateinit var messageRecyclerView: RecyclerView
+    var messageList = mutableListOf<MessageModel>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,7 +63,7 @@ class MessageActivity : AppCompatActivity() {
         }
     }
 
-    private fun getContactDetails(uid: String) {
+    fun getContactDetails(uid: String) {
         database.reference.child(Config.USERS).child(uid).get()
             .addOnSuccessListener { snapshot ->
                 val contact = snapshot.getValue(UserModel::class.java)
@@ -75,7 +80,7 @@ class MessageActivity : AppCompatActivity() {
             }
     }
 
-    private fun getMessages() {
+    fun getMessages() {
         database.reference.child(Config.CHATS)
             .child(senderUid).child(receiverUid)
             .addChildEventListener(object : ChildEventListener {
@@ -106,7 +111,7 @@ class MessageActivity : AppCompatActivity() {
             })
     }
 
-    private fun sendMessage(messageText: String) {
+    fun sendMessage(messageText: String) {
         val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
         val message = MessageModel(
             senderId = senderUid,
