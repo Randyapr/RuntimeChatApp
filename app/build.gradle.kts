@@ -104,6 +104,7 @@ dependencies {
     // Coroutine
     testImplementation (libs.kotlinx.coroutines.test)
 //    testImplementation (libs.robolectric)
+    implementation("com.google.android.gms:play-services-location:21.0.1")
 
 
 }

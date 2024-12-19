@@ -8,7 +8,11 @@ import androidx.appcompat.app.AppCompatActivity
 import com.example.runtimechatapp.databinding.ActivityAddContactBinding
 import com.example.runtimechatapp.utils.Config
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.*
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ServerValue
+import com.google.firebase.database.ValueEventListener
 import com.google.i18n.phonenumbers.NumberParseException
 import com.google.i18n.phonenumbers.PhoneNumberUtil
 
@@ -23,19 +27,24 @@ class AddContactActivity : AppCompatActivity() {
         binding = ActivityAddContactBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        initializeFirebase()
+        setupUI()
+    }
+
+    private fun initializeFirebase() {
         auth = FirebaseAuth.getInstance()
         database = FirebaseDatabase.getInstance()
+    }
 
+    private fun setupUI() {
         binding.save.setOnClickListener {
-            val name = binding.inputName.text.toString()
-            val phone = binding.inputPhone.text.toString()
+            val name = binding.inputName.text.toString().trim()
+            val phone = binding.inputPhone.text.toString().trim()
 
-            if (name.isEmpty() || phone.isEmpty()) {
-                Toast.makeText(this, "Please fill all fields", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+            if (validateInput(name, phone)) {
+                binding.nameProgressbar.visibility = View.VISIBLE
+                addContactToDatabase(name, phone)
             }
-
-            addContactToDatabase(name, phone)
         }
 
         binding.btnCancel.setOnClickListener {
@@ -43,62 +52,99 @@ class AddContactActivity : AppCompatActivity() {
         }
     }
 
-    private fun addContactToDatabase(name: String, phone: String) {
-        binding.nameProgressbar.visibility = View.VISIBLE
+    private fun validateInput(name: String, phone: String): Boolean {
+        when {
+            name.isEmpty() -> {
+                showToast("Nama tidak boleh kosong")
+                return false
+            }
+            phone.isEmpty() -> {
+                showToast("Nomor telepon tidak boleh kosong")
+                return false
+            }
+        }
+        return true
+    }
 
-        val phoneNumberUtil = PhoneNumberUtil.getInstance()
+    private fun addContactToDatabase(name: String, phone: String) {
         try {
+            val phoneNumberUtil = PhoneNumberUtil.getInstance()
             val phoneNumber = phoneNumberUtil.parse(phone, "ID")
             val formattedPhone = phoneNumberUtil.format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164)
 
+            Log.d(TAG, "Current User Phone: ${auth.currentUser?.phoneNumber}")
+            Log.d(TAG, "Input Phone: $formattedPhone")
+
+            // Validasi nomor sendiri
             if (formattedPhone == auth.currentUser?.phoneNumber) {
                 binding.nameProgressbar.visibility = View.GONE
-                Toast.makeText(this, "Tidak bisa menambah kontak sendiri", Toast.LENGTH_SHORT).show()
+                showToast("Tidak bisa menambahkan nomor sendiri")
                 return
             }
 
+            // Cari user berdasarkan nomor telepon
             val usersRef = database.reference.child(Config.USERS)
-            val query = usersRef.orderByChild("phone").equalTo(formattedPhone)
-
-            query.addListenerForSingleValueEvent(object : ValueEventListener {
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    if (snapshot.exists()) {
-                        for (userSnapshot in snapshot.children) {
-                            val contactUid = userSnapshot.key
-
-                            val currentUserId = auth.currentUser?.uid
-                            val contactsRef = database.reference.child(Config.CONTACTS)
-                                .child(currentUserId!!)
-                                .child(contactUid!!)
-
-                            contactsRef.setValue(true)
-                                .addOnSuccessListener {
-                                    binding.nameProgressbar.visibility = View.GONE
-                                    Toast.makeText(this@AddContactActivity, "Contact Berhasil Ditambahkan", Toast.LENGTH_SHORT).show()
-                                    finish()
-                                }
-                                .addOnFailureListener { e ->
-                                    binding.nameProgressbar.visibility = View.GONE
-                                    Toast.makeText(this@AddContactActivity, "Error untuk menambah contact: ${e.message}", Toast.LENGTH_SHORT).show()
-                                }
-                            break
+            usersRef.orderByChild("phone")
+                .equalTo(formattedPhone)
+                .addListenerForSingleValueEvent(object : ValueEventListener {
+                    override fun onDataChange(snapshot: DataSnapshot) {
+                        if (!snapshot.exists()) {
+                            binding.nameProgressbar.visibility = View.GONE
+                            showToast("Nomor telepon tidak terdaftar")
+                            return
                         }
-                    } else {
-                        binding.nameProgressbar.visibility = View.GONE
-                        Toast.makeText(this@AddContactActivity, "Nomor tidak terdaftar", Toast.LENGTH_SHORT).show()
-                    }
-                }
 
-                override fun onCancelled(error: DatabaseError) {
-                    binding.nameProgressbar.visibility = View.GONE
-                    Toast.makeText(this@AddContactActivity, "Error validating phone number", Toast.LENGTH_SHORT).show()
-                    Log.e("AddContactActivity", "Error validating phone number: ${error.message}")
-                }
-            })
+                        // Ambil user pertama yang ditemukan
+                        val userSnapshot = snapshot.children.first()
+                        val contactUid = userSnapshot.key!!
+
+                        // Tambahkan ke kontak
+                        saveContact(contactUid)
+                    }
+
+                    override fun onCancelled(error: DatabaseError) {
+                        binding.nameProgressbar.visibility = View.GONE
+                        showToast("Gagal mencari user: ${error.message}")
+                        Log.e(TAG, "Error finding user: ${error.message}")
+                    }
+                })
+
         } catch (e: NumberParseException) {
             binding.nameProgressbar.visibility = View.GONE
-            Toast.makeText(this, "Nomor telepon tidak valid", Toast.LENGTH_SHORT).show()
-            Log.e("AddContactActivity", "Error parsing phone number: ${e.message}")
+            showToast("Format nomor telepon tidak valid")
+            Log.e(TAG, "Error parsing phone: ${e.message}")
         }
+    }
+
+    private fun saveContact(contactUid: String) {
+        val currentUserId = auth.currentUser?.uid ?: return
+        val contactRef = database.reference
+            .child(Config.CONTACTS)
+            .child(currentUserId)
+            .child(contactUid)
+
+        val contactData = mapOf(
+            "timestamp" to ServerValue.TIMESTAMP
+        )
+
+        contactRef.setValue(contactData)
+            .addOnSuccessListener {
+                binding.nameProgressbar.visibility = View.GONE
+                showToast("Kontak berhasil ditambahkan")
+                finish()
+            }
+            .addOnFailureListener { e ->
+                binding.nameProgressbar.visibility = View.GONE
+                showToast("Gagal menambahkan kontak: ${e.message}")
+                Log.e(TAG, "Error adding contact: ${e.message}")
+            }
+    }
+
+    private fun showToast(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    }
+
+    companion object {
+        private const val TAG = "AddContactActivity"
     }
 }

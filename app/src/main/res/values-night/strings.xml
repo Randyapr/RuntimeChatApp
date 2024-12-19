@@ -31,6 +31,8 @@
     <string name="send_error">Gagal terkirim</string>
     <string name="dark_mode">Dark Mode</string>
     <string name="setting">Setting</string>
+    <string name="clear_pesan">clear chat</string>
+
 
 
 </resources>

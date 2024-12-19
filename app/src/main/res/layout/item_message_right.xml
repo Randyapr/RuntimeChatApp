@@ -7,13 +7,13 @@
         android:gravity="end"
         android:layout_height="wrap_content">
 
+        <!-- Timestamp -->
         <TextView
             android:id="@+id/timeView"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
             android:layout_marginRight="8dp"
-            android:layout_weight="1"
             android:gravity="end"
             android:text="14:00"
             android:textStyle="italic" />
@@ -24,13 +24,16 @@
             android:orientation="vertical"
             android:layout_marginLeft="5dp">
 
+            <!-- Image for messages -->
             <ImageView
                 android:id="@+id/imageView"
                 android:layout_width="200dp"
                 android:layout_height="200dp"
                 android:layout_marginBottom="8dp"
-                android:visibility="gone" />
+                android:visibility="gone"
+                android:scaleType="centerCrop" />
 
+            <!-- Text message -->
             <TextView
                 android:id="@+id/pesanKanan"
                 android:layout_width="wrap_content"
@@ -38,10 +41,9 @@
                 android:background="@drawable/bg_bubble_right"
                 android:maxWidth="250dp"
                 android:padding="10dp"
-                android:text="Hello"
-                android:layout_marginEnd="20dp"
                 android:textColor="@android:color/black"
-                android:textSize="15dp"/>
+                android:textSize="15sp"
+                android:visibility="visible" />
         </LinearLayout>
     </LinearLayout>
 </layout>

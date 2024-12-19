@@ -1,77 +1,67 @@
 package com.example.runtimechatapp.menu
 
-import android.content.Context
-import android.content.Intent
-import android.content.SharedPreferences
 import android.os.Bundle
-import android.provider.Settings
-import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import com.example.runtimechatapp.R
-import com.google.android.material.switchmaterial.SwitchMaterial
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.fragment.app.Fragment
+import com.example.runtimechatapp.databinding.FragmentSettingBinding
 
 class SettingFragment : Fragment() {
-
-    private lateinit var sharedPreferences: SharedPreferences
-    private val themePrefKey = "theme_preference"
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-
-        // Inisialisasi SharedPreferences
-        sharedPreferences = requireActivity().getSharedPreferences("settings", Context.MODE_PRIVATE)
-
-        // Terapkan tema yang dipilih
-        applyTheme()
-    }
+    private var _binding: FragmentSettingBinding? = null
+    private val binding get() = _binding!!
 
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
+        inflater: LayoutInflater,
+        container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
-        val view = inflater.inflate(R.layout.fragment_setting, container, false)
-
-        val switchTheme: SwitchMaterial = view.findViewById(R.id.switch_theme)
-
-        // Inisialisasi status switch berdasarkan tema saat ini
-        switchTheme.isChecked = AppCompatDelegate.getDefaultNightMode() == AppCompatDelegate.MODE_NIGHT_YES
-
-        switchTheme.setOnCheckedChangeListener { _, isChecked ->
-            // Simpan preferensi tema
-            with(sharedPreferences.edit()) {
-                putBoolean(themePrefKey, isChecked)
-                apply()
-            }
-
-            // Terapkan tema yang dipilih
-            applyTheme()
-        }
-
-        val settingImageView: View = view.findViewById(R.id.settingImageView)
-        settingImageView.setOnClickListener {
-            startActivity(Intent(Settings.ACTION_LOCALE_SETTINGS))
-        }
-
-        return view
+    ): View {
+        _binding = FragmentSettingBinding.inflate(inflater, container, false)
+        return binding.root
     }
 
-    private fun applyTheme() {
-        // Periksa tema sistem
-        when (AppCompatDelegate.getDefaultNightMode()) {
-            AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM -> {
-                // Gunakan tema sistem
-                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
-            }
-            else -> {
-                // Gunakan tema dari SharedPreferences
-                val isDarkMode = sharedPreferences.getBoolean(themePrefKey, false)
-                AppCompatDelegate.setDefaultNightMode(
-                    if (isDarkMode) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
-                )
-            }
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        setupDarkModeSwitch()
+        setupLanguageClick()
+    }
+
+    private fun setupDarkModeSwitch() {
+        // Set initial state
+        binding.darkModeSwitch.isChecked = isDarkModeEnabled()
+
+        // Listen for changes
+        binding.darkModeSwitch.setOnCheckedChangeListener { _, isChecked ->
+            setDarkMode(isChecked)
         }
+    }
+
+    private fun setupLanguageClick() {
+        binding.languageLayout.setOnClickListener {
+            // Implementasi pemilihan bahasa bisa ditambahkan di sini
+            Toast.makeText(context, "Language settings coming soon", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun isDarkModeEnabled(): Boolean {
+        return when (AppCompatDelegate.getDefaultNightMode()) {
+            AppCompatDelegate.MODE_NIGHT_YES -> true
+            else -> false
+        }
+    }
+
+    private fun setDarkMode(enabled: Boolean) {
+        AppCompatDelegate.setDefaultNightMode(
+            if (enabled) AppCompatDelegate.MODE_NIGHT_YES
+            else AppCompatDelegate.MODE_NIGHT_NO
+        )
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 }

@@ -6,10 +6,14 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.runtimechatapp.databinding.ItemMessageLeftBinding
 import com.example.runtimechatapp.databinding.ItemMessageRightBinding
 import com.example.runtimechatapp.model.MessageModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MessageAdapter(
     private val messageList: List<MessageModel>,
-    private val senderUid: String
+    private val senderUid: String,
+    private val onLongClick: (MessageModel, Int) -> Unit
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     companion object {
@@ -38,20 +42,39 @@ class MessageAdapter(
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         val message = messageList[position]
 
-        if (holder.javaClass == MessageRightViewHolder::class.java) {
-            val viewHolder = holder as MessageRightViewHolder
-            viewHolder.binding.pesanKanan.text = message.message
-            viewHolder.binding.timeView.text = message.timestamp
-        } else {
-            val viewHolder = holder as MessageLeftViewHolder
-            viewHolder.binding.pesanKiri.text = message.message
-            viewHolder.binding.timeKiri.text = message.timestamp
+        when (holder) {
+            is MessageRightViewHolder -> {
+                holder.binding.apply {
+                    pesanKanan.text = message.message
+                    timeView.text = getFormattedTime(message.timestamp)
+
+                    // Setup long click for delete
+                    root.setOnLongClickListener {
+                        onLongClick(message, position)
+                        true
+                    }
+                }
+            }
+            is MessageLeftViewHolder -> {
+                holder.binding.apply {
+                    pesanKiri.text = message.message
+                    timeKiri.text = getFormattedTime(message.timestamp)
+                }
+            }
         }
     }
 
-    override fun getItemCount(): Int {
-        return messageList.size
+    private fun getFormattedTime(timestamp: String?): String {
+        return try {
+            val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
+            val date = Date(timestamp?.toLong() ?: 0)
+            sdf.format(date)
+        } catch (e: Exception) {
+            timestamp ?: ""
+        }
     }
+
+    override fun getItemCount(): Int = messageList.size
 
     override fun getItemViewType(position: Int): Int {
         return if (messageList[position].senderId == senderUid) {
